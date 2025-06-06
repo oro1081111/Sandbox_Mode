@@ -38,3 +38,17 @@ async def solve(request: SolveRequest):
     except Exception as e:
         return {"error": str(e)}
 
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
+
+# 掛載 static 資料夾（讓 CSS, JS, HTML 等資源可被讀取）
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# 根目錄直接回傳 index.html
+@app.get("/")
+async def read_index():
+    index_path = os.path.join("static", "index.html")
+    return FileResponse(index_path)
+
+
