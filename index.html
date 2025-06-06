@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>沙盒解題系統</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      background: #fff;
+      margin: 0;
+      padding: 20px;
+    }
+    .hex-container {
+      position: relative;
+      width: 300px;
+      height: 340px;
+      margin: 0 auto 20px;
+    }
+    .hex {
+      width: 90px;
+      height: 92px;
+      background-color: #eee;
+      position: absolute;
+      clip-path: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 0;
+    }
+    .hex[data-pos="-1,1"] { top: 0px; left: 70px; }
+    .hex[data-pos="0,1"] { top: 0px; left: 150px; }
+    .hex[data-pos="-1,0"] { top: 72px; left: 30px; }
+    .hex[data-pos="0,0"] { top: 72px; left: 110px; }
+    .hex[data-pos="1,0"] { top: 72px; left: 190px; }
+    .hex[data-pos="0,-1"] { top: 144px; left: 70px; }
+    .hex[data-pos="1,-1"] { top: 144px; left: 150px; }
+
+    .palette {
+      display: grid;
+      grid-template-columns: repeat(3, auto);
+      grid-template-rows: repeat(2, auto);
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      position: relative;
+    }
+
+    .tile {
+      width: 90px;
+      height: 92px;
+      background-color: gray;
+      clip-path: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
+      cursor: grab;
+      display: inline-block;
+      z-index: 1;
+    }
+
+    .R { background-color: #e57373; }
+    .B { background-color: #64b5f6; }
+    .G { background-color: #81c784; }
+    .Y { background-color: #fdd835; }
+    .P { background-color: #ba68c8; }
+
+    .start-dot {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background-color: black;
+      cursor: grab;
+      position: absolute;
+      z-index: 1000;
+    }
+
+    button {
+      font-size: 18px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 10px;
+      background-color: #ddd;
+      cursor: pointer;
+    }
+
+    #solution-box {
+      margin-top: 20px;
+      font-size: 18px;
+      background: #f3f3f3;
+      padding: 10px;
+      border-radius: 8px;
+      width: fit-content;
+      margin-left: auto;
+      margin-right: auto;
+      white-space: pre-line;
+    }
+
+    #solve-btn {
+      position: relative;
+      top: -50px;
+    }
+
+    .spinner {
+      border: 6px solid #f3f3f3;
+      border-top: 6px solid #555;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+  </style>
+</head>
+<body>
+  <div class="hex-container" id="grid">
+    <div class="hex" data-pos="-1,1"></div>
+    <div class="hex" data-pos="0,1"></div>
+    <div class="hex" data-pos="-1,0"></div>
+    <div class="hex" data-pos="0,0"></div>
+    <div class="hex" data-pos="1,0"></div>
+    <div class="hex" data-pos="0,-1"></div>
+    <div class="hex" data-pos="1,-1"></div>
+  </div>
+
+  <div class="palette">
+    <div class="tile R" draggable="true" data-color="R"></div>
+    <div class="tile B" draggable="true" data-color="B"></div>
+    <div class="tile Y" draggable="true" data-color="Y"></div>
+    <div class="tile G" draggable="true" data-color="G"></div>
+    <div class="tile P" draggable="true" data-color="P"></div>
+  </div>
+
+  <div class="start-dot" id="start-dot" draggable="true"></div>
+
+ <button id="solve-btn" onclick="solve()">開始解答</button>
+
+  <div id="solution-box"></div>
+
+  <script>
+    const grid = document.getElementById('grid');
+    const tiles = document.querySelectorAll('.tile');
+    const hexes = document.querySelectorAll('.hex');
+    const startDot = document.getElementById('start-dot');
+    const solutionBox = document.getElementById('solution-box');
+    const solveBtn = document.getElementById('solve-btn');
+    let draggedElement = null;
+    let startAssigned = null;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const positionMap = {
+        'B': '-1,0',
+        'R': '0,0',
+        'G': '1,0',
+        'Y': '0,-1',
+        'P': '1,-1'
+      };
+
+      tiles.forEach(tile => {
+        const color = tile.dataset.color;
+        const pos = positionMap[color];
+        const hex = document.querySelector(`.hex[data-pos="${pos}"]`);
+        if (hex) {
+          hex.appendChild(tile);
+          hex.dataset.color = color;
+        }
+      });
+
+      const hexWithStart = document.querySelector('.hex[data-pos="0,0"]');
+      if (hexWithStart) {
+        hexWithStart.appendChild(startDot);
+        startDot.style.position = 'absolute';
+        startDot.style.left = '25px';
+        startDot.style.top = '28px';
+        startAssigned = hexWithStart;
+      }
+    checkStartDotValidity();
+    });
+
+    tiles.forEach(tile => {
+      tile.addEventListener('dragstart', () => {
+        draggedElement = tile;
+      });
+    });
+
+    startDot.addEventListener('dragstart', () => {
+      draggedElement = startDot;
+    });
+
+    hexes.forEach(hex => {
+      hex.addEventListener('dragover', e => e.preventDefault());
+
+      hex.addEventListener('drop', e => {
+        if (!draggedElement) return;
+
+        if (draggedElement.classList.contains('start-dot')) {
+          hex.appendChild(startDot);
+          startDot.style.position = 'absolute';
+          startDot.style.left = '25px';
+          startDot.style.top = '28px';
+          startAssigned = hex;
+        } else if (draggedElement.classList.contains('tile')) {
+          const existingTile = hex.querySelector('.tile');
+          const sourceParent = draggedElement.parentElement;
+
+          if (existingTile && existingTile !== draggedElement) {
+            hex.replaceChild(draggedElement, existingTile);
+            sourceParent.appendChild(existingTile);
+          } else if (!existingTile) {
+            hex.appendChild(draggedElement);
+          }
+          hex.dataset.color = draggedElement.dataset.color;
+        }
+
+        checkStartDotValidity();
+      });
+    });
+
+    function checkStartDotValidity() {
+    if (!startAssigned || !startAssigned.querySelector('.tile')) {
+      solutionBox.innerText = '起始位置設置錯誤';
+      solveBtn.disabled = true;
+      solveBtn.style.backgroundColor = '#aaa';  // 灰掉按鈕
+    } else {
+      solutionBox.innerText = '';
+      solveBtn.disabled = false;
+      solveBtn.style.backgroundColor = '#ddd';  // 還原按鈕色
+    }
+  }
+
+
+    async function solve() {
+  // 若黑點未放置於任何 hex，或該 hex 沒有顏色板塊
+  if (!startAssigned || !startAssigned.dataset.color) {
+      solutionBox.innerText = '起始位置設置錯誤';
+      return;
+    }
+
+    // 建立顏色對應位置的索引
+    const indexDict = {};
+    let boyIndex = "";
+
+    hexes.forEach(hex => {
+      const colorTile = hex.querySelector('.tile');
+      if (colorTile) {
+        const color = colorTile.dataset.color;
+        const pos = hex.dataset.pos;
+        indexDict[color] = pos;
+      }
+
+      if (hex.contains(startDot)) {
+        const colorTile = hex.querySelector('.tile');
+        if (colorTile) {
+          boyIndex = colorTile.dataset.color;  // ✅ 直接取得顏色
+        }
+      }
+    });
+
+    // 呼叫 FastAPI 後端 API
+    solutionBox.innerHTML = `
+      <div class="spinner"></div>
+      <div>正在尋找最佳解，請稍候...</div>
+    `;
+    try {
+      const response = await fetch("http://127.0.0.1:8000/solve", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          index_dict: indexDict,
+          boy_index: boyIndex
+        })
+      });
+
+      const data = await response.json();
+
+    if (data.error) {
+      solutionBox.innerText = `❌ ${data.error}`;
+    } else {
+      const formatted = data.solution.replaceAll('\n', '<br>');
+      solutionBox.innerHTML =
+        `最佳步數：${data.optimal_steps} 步<br>解答：<br>${formatted}`;
+    }
+
+
+    } catch (err) {
+      solutionBox.innerText = `❌ 發生錯誤：${err.message}`;
+    }
+  }
+
+  </script>
+</body>
+</html>
