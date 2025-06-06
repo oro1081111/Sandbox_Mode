@@ -168,7 +168,11 @@
           hex.appendChild(tile);
           hex.dataset.color = color;
         }
+
+        enableTouchDrag(tile);  // ✅ 新增：讓 tile 支援觸控拖曳
       });
+
+      enableTouchDrag(startDot);  // ✅ 新增：讓起始點也支援觸控拖曳
 
       const hexWithStart = document.querySelector('.hex[data-pos="0,0"]');
       if (hexWithStart) {
@@ -178,8 +182,64 @@
         startDot.style.top = '28px';
         startAssigned = hexWithStart;
       }
-    checkStartDotValidity();
+
+      checkStartDotValidity();
     });
+
+
+    let offsetX = 0, offsetY = 0;
+
+    function enableTouchDrag(element) {
+      element.addEventListener('touchstart', function (e) {
+        draggedElement = element;
+        const touch = e.touches[0];
+        offsetX = touch.clientX - element.getBoundingClientRect().left;
+        offsetY = touch.clientY - element.getBoundingClientRect().top;
+        element.style.position = 'fixed';
+        element.style.zIndex = 999;
+      });
+
+      element.addEventListener('touchmove', function (e) {
+        if (!draggedElement) return;
+        const touch = e.touches[0];
+        draggedElement.style.left = `${touch.clientX - offsetX}px`;
+        draggedElement.style.top = `${touch.clientY - offsetY}px`;
+        e.preventDefault();
+      });
+
+      element.addEventListener('touchend', function (e) {
+        const touch = e.changedTouches[0];
+        const target = document.elementFromPoint(touch.clientX, touch.clientY);
+        if (target && target.classList.contains('hex')) {
+          const hex = target;
+          if (draggedElement.classList.contains('start-dot')) {
+            hex.appendChild(draggedElement);
+            draggedElement.style.position = 'absolute';
+            draggedElement.style.left = '25px';
+            draggedElement.style.top = '28px';
+            startAssigned = hex;
+          } else if (draggedElement.classList.contains('tile')) {
+            const existingTile = hex.querySelector('.tile');
+            const sourceParent = draggedElement.parentElement;
+            if (existingTile && existingTile !== draggedElement) {
+              hex.replaceChild(draggedElement, existingTile);
+              sourceParent.appendChild(existingTile);
+            } else if (!existingTile) {
+              hex.appendChild(draggedElement);
+            }
+            hex.dataset.color = draggedElement.dataset.color;
+          }
+          checkStartDotValidity();
+        }
+        draggedElement.style.position = '';
+        draggedElement.style.left = '';
+        draggedElement.style.top = '';
+        draggedElement.style.zIndex = '';
+        draggedElement = null;
+      });
+    }
+
+
 
     tiles.forEach(tile => {
       tile.addEventListener('dragstart', () => {
