@@ -127,7 +127,7 @@
     <div class="hex" data-pos="1,-1"></div>
   </div>
 
-  <div class="palette">
+  <div class="palette" id="palette">
     <div class="tile R" draggable="true" data-color="R"></div>
     <div class="tile B" draggable="true" data-color="B"></div>
     <div class="tile Y" draggable="true" data-color="Y"></div>
@@ -226,12 +226,21 @@
             const sourceParent = draggedElement.parentElement;
 
             if (existingTile && existingTile !== draggedElement) {
-              // ✅ 交換位置：將 dragged 替換進 hex，原本的 tile 回 palette
+              const palette = document.getElementById('palette');
+              const color = existingTile.dataset.color;
+
+              // 🔁 若 palette 裡沒有這顏色，就放回 palette
+              const alreadyInPalette = palette.querySelector(`.tile[data-color="${color}"]`);
+              if (!alreadyInPalette) {
+                palette.appendChild(existingTile);
+              }
+
+              // ✅ 將拖曳中的 tile 放進 hex
               hex.replaceChild(draggedElement, existingTile);
-              sourceParent.appendChild(existingTile);
             } else if (!existingTile) {
               hex.appendChild(draggedElement);
             }
+
 
             hex.dataset.color = draggedElement.dataset.color;
           }
