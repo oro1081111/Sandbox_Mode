@@ -210,9 +210,12 @@
       element.addEventListener('touchend', function (e) {
         const touch = e.changedTouches[0];
         const target = document.elementFromPoint(touch.clientX, touch.clientY);
+
         if (target && target.classList.contains('hex')) {
           const hex = target;
+
           if (draggedElement.classList.contains('start-dot')) {
+            // ✅ 起始點也可以放到已有 tile 的 hex 上
             hex.appendChild(draggedElement);
             draggedElement.style.position = 'absolute';
             draggedElement.style.left = '25px';
@@ -221,22 +224,29 @@
           } else if (draggedElement.classList.contains('tile')) {
             const existingTile = hex.querySelector('.tile');
             const sourceParent = draggedElement.parentElement;
+
             if (existingTile && existingTile !== draggedElement) {
+              // ✅ 交換位置：將 dragged 替換進 hex，原本的 tile 回 palette
               hex.replaceChild(draggedElement, existingTile);
               sourceParent.appendChild(existingTile);
             } else if (!existingTile) {
               hex.appendChild(draggedElement);
             }
+
             hex.dataset.color = draggedElement.dataset.color;
           }
+
           checkStartDotValidity();
         }
+
+        // ✅ 拖曳結束，重設樣式
         draggedElement.style.position = '';
         draggedElement.style.left = '';
         draggedElement.style.top = '';
         draggedElement.style.zIndex = '';
         draggedElement = null;
       });
+
     }
 
 
